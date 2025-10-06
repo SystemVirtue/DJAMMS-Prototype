@@ -168,7 +168,7 @@ export const usePlaylistManager = () => {
       const response = await databases.listDocuments(
         import.meta.env.VITE_APPWRITE_DATABASE_ID,
         'queues',
-        [`equal("venueId", "${currentVenue}")`]
+        [`equal(venueId, "${currentVenue}")`]
       );
 
       const docId = response.documents.length > 0 ? response.documents[0].$id : 'unique()';
@@ -178,7 +178,7 @@ export const usePlaylistManager = () => {
         docId,
         {
           venueId: currentVenue,
-          queue: sortedQueue,
+          queue: JSON.stringify(sortedQueue),
           updatedAt: new Date().toISOString()
         }
       );
