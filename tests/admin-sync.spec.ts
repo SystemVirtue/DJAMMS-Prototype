@@ -11,6 +11,46 @@
 // Strict TypeScript (Playwright test runner expects TypeScript)
 import { test, expect, Page } from '@playwright/test';
 
+// Helper: Appwrite REST helper functions (use environment APPWRITE_* variables)
+const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT || process.env.APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1';
+const APPWRITE_PROJECT = process.env.VITE_APPWRITE_PROJECT_ID || process.env.APPWRITE_PROJECT_ID;
+const APPWRITE_DATABASE = process.env.VITE_APPWRITE_DATABASE_ID || process.env.APPWRITE_DATABASE_ID;
+const APPWRITE_KEY = process.env.VITE_APPWRITE_API_KEY || process.env.APPWRITE_API_KEY;
+
+async function createOrUpdateQueueDoc(venueId: string, queueData: any) {
+  if (!APPWRITE_KEY || !APPWRITE_PROJECT || !APPWRITE_DATABASE) return null;
+  const listUrl = `${APPWRITE_ENDPOINT}/databases/${APPWRITE_DATABASE}/collections/queues/documents`;
+  // List existing queue docs by venueId using a simple list and filter in JS (to avoid needing queries encoding)
+  const listRes = await fetch(listUrl, { headers: { 'X-Appwrite-Project': APPWRITE_PROJECT, 'X-Appwrite-Key': APPWRITE_KEY } });
+  if (!listRes.ok) throw new Error(`Failed to list queues: ${await listRes.text()}`);
+  const listJson = await listRes.json();
+  const found = (listJson.documents || []).find((d: any) => d.venueId === venueId);
+  if (found) {
+    const updateUrl = `${APPWRITE_ENDPOINT}/databases/${APPWRITE_DATABASE}/collections/queues/documents/${found.$id}`;
+    const updateRes = await fetch(updateUrl, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Appwrite-Project': APPWRITE_PROJECT, 'X-Appwrite-Key': APPWRITE_KEY },
+      body: JSON.stringify({ venueId, queue: JSON.stringify(queueData) }),
+    });
+    if (!updateRes.ok) throw new Error(`Failed to update queue: ${await updateRes.text()}`);
+    return (await updateRes.json()).$id;
+  }
+  const createUrl = `${APPWRITE_ENDPOINT}/databases/${APPWRITE_DATABASE}/collections/queues/documents`;
+  const createRes = await fetch(createUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Appwrite-Project': APPWRITE_PROJECT, 'X-Appwrite-Key': APPWRITE_KEY },
+    body: JSON.stringify({ venueId, queue: JSON.stringify(queueData) }),
+  });
+  if (!createRes.ok) throw new Error(`Failed to create queue: ${await createRes.text()}`);
+  return (await createRes.json()).$id;
+}
+
+async function deleteQueueDocById(docId: string) {
+  if (!APPWRITE_KEY || !APPWRITE_PROJECT || !APPWRITE_DATABASE || !docId) return;
+  const url = `${APPWRITE_ENDPOINT}/databases/${APPWRITE_DATABASE}/collections/queues/documents/${docId}`;
+  await fetch(url, { method: 'DELETE', headers: { 'X-Appwrite-Project': APPWRITE_PROJECT, 'X-Appwrite-Key': APPWRITE_KEY } }).catch(() => {});
+}
+
 test('admin queue changes sync to player and kiosk (full flow)', async ({ browser, context }) => {
   // Load a storageState if you have one (optional). Using current context storageState ensures cookies/localStorage are preserved.
   // If you have a prepared `test-storage.json` you can use it to seed auth/storage. Here we re-use the provided context.
@@ -25,14 +65,29 @@ test('admin queue changes sync to player and kiosk (full flow)', async ({ browse
     { id: 'INIT_TRACK_1', title: 'Initial Test Track', url: 'https://www.youtube.com/watch?v=INIT_TRACK_1', priority: 'normal', index: Date.now() },
   ];
 
-  await sharedContext.addInitScript((serialized: any) => {
+  // If Appwrite API key present, create/update a DB-backed queue doc before navigation
+  let testQueueDocId: string | null = null;
+  const useDbBacked = !!APPWRITE_KEY;
+  if (useDbBacked) {
     try {
-      const parsed = typeof serialized === 'string' ? JSON.parse(serialized) : serialized;
-      localStorage.setItem('djams-test-queue', JSON.stringify(parsed));
+      testQueueDocId = await createOrUpdateQueueDoc('venue1', INITIAL_TEST_QUEUE);
+      console.log('Created/updated test queue doc id=', testQueueDocId);
     } catch (e) {
-      // ignore
+      console.warn('DB-backed queue setup failed, falling back to localStorage seed', e);
     }
-  }, JSON.stringify(INITIAL_TEST_QUEUE));
+  }
+
+  // If DB-backed wasn't used, seed localStorage via init script so pages start with a queue
+  if (!testQueueDocId) {
+    await sharedContext.addInitScript((serialized: any) => {
+      try {
+        const parsed = typeof serialized === 'string' ? JSON.parse(serialized) : serialized;
+        localStorage.setItem('djams-test-queue', JSON.stringify(parsed));
+      } catch (e) {
+        // ignore
+      }
+    }, JSON.stringify(INITIAL_TEST_QUEUE));
+  }
 
   // Create three pages: admin, player, kiosk
   const adminPage = await sharedContext.newPage();
@@ -246,5 +301,9 @@ test('admin queue changes sync to player and kiosk (full flow)', async ({ browse
   await kioskPage.waitForSelector('[data-testid="marquee-text"], iframe', { timeout: 10000 });
 
   // ---------- CLEANUP ----------
+  // Remove DB-backed test doc if we created one
+  if (testQueueDocId) {
+    await deleteQueueDocById(testQueueDocId).catch(() => {});
+  }
   await sharedContext.close();
 });
