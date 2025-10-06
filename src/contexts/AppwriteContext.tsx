@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { Client, Databases, Account } from 'appwrite';
+import { Client, Databases, Account, Query } from 'appwrite';
 
 interface Track {
   id: string;
@@ -121,7 +121,7 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
         const response = await databases.listDocuments(
           import.meta.env.VITE_APPWRITE_DATABASE_ID,
           'queues',
-          [`equal("venueId", "${venueId}")`]
+          [Query.equal('venueId', venueId)]
         );
         if (response.documents.length > 0) {
           const doc = response.documents[0];
