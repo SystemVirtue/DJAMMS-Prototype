@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { RealtimeQueueProvider, useRealtimeQueue } from '../contexts/AppwriteContext';
 import { usePlayerManager } from '../hooks/usePlayerManager';
 import { ScrollArea } from './ui/scroll-area';
@@ -18,7 +18,8 @@ const Marquee: React.FC<{ text: string; className?: string }> = ({ text, classNa
 
 const KioskEmbedContent: React.FC = () => {
   const { queue } = useRealtimeQueue();
-  const { playerState, playTrack, setCurrentVideoId } = usePlayerManager();
+  const playerManager = usePlayerManager();
+  const playerManagerRef = useRef(playerManager);
 
   const currentTrack = queue.length > 0 ? queue[0] : null;
 
@@ -35,24 +36,18 @@ const KioskEmbedContent: React.FC = () => {
     requestFullscreen();
   }, []);
 
-  // Memoize handler to avoid deps on updaters
-  const handleQueueChange = useCallback(() => {
+  useEffect(() => {
     if (queue.length > 0) {
       const videoId = queue[0].id;
-      setCurrentVideoId(videoId);
-      if (!playerState.isPlaying) {
-        // Defer to post-render
-        setTimeout(() => playTrack(videoId), 0);
+      playerManagerRef.current.setCurrentVideoId(videoId);
+      if (!playerManager.playerState.isPlaying) {
+        setTimeout(() => playerManagerRef.current.playTrack(videoId), 0);
       }
     } else {
-      setCurrentVideoId(null);
+      playerManagerRef.current.setCurrentVideoId(null);
     }
     console.log('KioskEmbed queue:', queue);
-  }, [queue.length, playerState.isPlaying]); // Length only; updaters stable, ignore ESLint
-
-  useEffect(() => {
-    handleQueueChange();
-  }, [handleQueueChange]); // Stable handler dep
+  }, [queue.length]); // Length only—no updaters
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col z-0 overflow-hidden">
@@ -65,9 +60,9 @@ const KioskEmbedContent: React.FC = () => {
 
       {/* Middle 2/4: Iframe */}
       <div className="flex-1 flex items-center justify-center">
-        {playerState.currentVideoId ? (
+        {playerManager.playerState.currentVideoId ? (
           <iframe
-            src={`https://www.youtube.com/embed/${playerState.currentVideoId}?autoplay=1&controls=0&rel=0&modestbranding=1&showinfo=0`}
+            src={`https://www.youtube.com/embed/${playerManager.playerState.currentVideoId}?autoplay=1&controls=0&rel=0&modestbranding=1&showinfo=0`}
             title="YouTube Player"
             className="h-full w-full border-none"
             allow="autoplay; encrypted-media"
