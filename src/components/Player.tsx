@@ -17,7 +17,7 @@ const Marquee: React.FC<{ text: string; className?: string }> = ({ text, classNa
   );
 };
 
-const PlayerContent: React.FC = () => {
+const PlayerContent: React.FC = React.memo(() => {
   const { queue } = useRealtimeQueue();
   const { playerState, play, pause, nextTrack, playTrack, setCurrentVideoId } = usePlayerManager();
 
@@ -97,7 +97,7 @@ const PlayerContent: React.FC = () => {
           <CardContent className="p-4">
             <Accordion data-testid="queue" type="single" collapsible className="w-full">
               {queue.map((track, index) => (
-                <AccordionItem key={track.id} value={`item-${index}`}>
+                <AccordionItem key={track.id} data-testid="queue-item" value={`item-${index}`}>
                   <AccordionTrigger className="text-white hover:text-amber-400">
                     {track.title}
                   </AccordionTrigger>
@@ -124,7 +124,7 @@ const PlayerContent: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
 const Player: React.FC = () => {
   return (
