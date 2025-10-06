@@ -22,10 +22,16 @@ const KioskEmbedContent: React.FC = () => {
   const currentTrack = queue.length > 0 ? queue[0] : null;
 
   useEffect(() => {
-    // Request fullscreen on mount
-    if (document.fullscreenElement === null) {
-      document.documentElement.requestFullscreen().catch(console.error);
-    }
+    const requestFullscreen = async () => {
+      try {
+        if (document.fullscreenElement === null && document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (error) {
+        console.warn('Fullscreen request failed:', error);
+      }
+    };
+    requestFullscreen();
   }, []);
 
   useEffect(() => {
@@ -73,7 +79,7 @@ const KioskEmbedContent: React.FC = () => {
         <ScrollArea className="flex-1 p-4">
           <div data-testid="up-next" className="space-y-2">
             {queue.slice(1).map((track) => (
-              <Card key={track.id} data-testid="queue-item" className="bg-slate-800 border-slate-600">
+              <Card key={track.id} data-testid="up-next-item" className="bg-slate-800 border-slate-600">
                 <CardContent className="p-3 flex items-center gap-3">
                   <img
                     src={`https://img.youtube.com/vi/${track.id}/default.jpg`}
