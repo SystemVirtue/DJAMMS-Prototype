@@ -63,9 +63,6 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
   // Storage key for cross-tab sync
   const TEST_QUEUE_STORAGE_KEY = 'djams-test-queue';
 
-  // Memoize queue to prevent unnecessary re-renders
-  const memoQueue = useMemo(() => queue, [JSON.stringify(queue)]);
-
   useEffect(() => {
     // In test mode, sync with localStorage and BroadcastChannel
     if (isTestMode && typeof window !== 'undefined') {
