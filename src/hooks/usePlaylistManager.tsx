@@ -90,7 +90,9 @@ export const usePlaylistManager = () => {
         setQueue(response.documents[0]?.queue || []);
       }
     } catch (error) {
-      if ((error as any).code === 400) toast.error('Query error—check syntax');
+      if ((error as any).code === 400) {
+        toast.error('Query syntax error—fallback empty queue');
+      }
       setQueue([]);
     } finally {
       setLoading(false);

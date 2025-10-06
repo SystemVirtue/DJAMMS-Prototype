@@ -33,7 +33,7 @@ const PlayerContent: React.FC = React.memo(() => {
     } else {
       setCurrentVideoId(null);
     }
-  }, [queue, setCurrentVideoId, playerState.isPlaying, playTrack]);
+  }, [queue.length, setCurrentVideoId, playerState.isPlaying, playTrack]);
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-4">

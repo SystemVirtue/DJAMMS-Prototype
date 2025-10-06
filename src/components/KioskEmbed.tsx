@@ -45,7 +45,7 @@ const KioskEmbedContent: React.FC = () => {
       setCurrentVideoId(null);
     }
     console.log('KioskEmbed queue:', queue);
-  }, [queue, setCurrentVideoId, playerState.isPlaying, playTrack]);
+  }, [queue.length, setCurrentVideoId, playerState.isPlaying, playTrack]);
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col z-0 overflow-hidden">
