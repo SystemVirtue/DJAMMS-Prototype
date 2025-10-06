@@ -124,7 +124,8 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
           [`equal("venueId", "${venueId}")`]
         );
         if (response.documents.length > 0) {
-          setQueue(response.documents[0].queue || []);
+          const doc = response.documents[0];
+          setQueue(doc.queue ? JSON.parse(doc.queue) : []);
         }
       } catch (error) {
         console.error('Error fetching initial queue:', error);
