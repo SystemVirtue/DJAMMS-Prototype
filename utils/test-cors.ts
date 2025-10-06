@@ -1,51 +1,35 @@
-// @ts-ignore
-const fetch = global.fetch;
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
-const APPWRITE_ENDPOINT = 'https://syd.cloud.appwrite.io/v1';
-const VERCEL_ORIGIN = 'https://djamms-prototype.vercel.app';
+const execAsync = promisify(exec);
 
 async function testCORS() {
-  console.log('Testing CORS configuration for Appwrite endpoint...');
-  console.log(`Endpoint: ${APPWRITE_ENDPOINT}`);
-  console.log(`Origin: ${VERCEL_ORIGIN}`);
-
+  const VERCEL_ORIGIN = 'https://djamms-prototype.vercel.app';
+  const APPWRITE_ENDPOINT = process.env.APPWRITE_ENDPOINT || 'https://syd.cloud.appwrite.io/v1';
+  
   try {
-    const response = await fetch(`${APPWRITE_ENDPOINT}/account`, {
-      method: 'GET',
-      headers: {
-        'Origin': VERCEL_ORIGIN,
-        'Access-Control-Request-Method': 'GET',
-        'Access-Control-Request-Headers': 'content-type',
-      },
-    });
-
-    console.log(`Status: ${response.status}`);
-    console.log(`Status Text: ${response.statusText}`);
-
-    const corsHeaders = {
-      'access-control-allow-origin': response.headers.get('access-control-allow-origin'),
-      'access-control-allow-methods': response.headers.get('access-control-allow-methods'),
-      'access-control-allow-headers': response.headers.get('access-control-allow-headers'),
-      'access-control-allow-credentials': response.headers.get('access-control-allow-credentials'),
-    };
-
-    console.log('CORS Headers:');
-    Object.entries(corsHeaders).forEach(([key, value]) => {
-      console.log(`  ${key}: ${value}`);
-    });
-
-    if (corsHeaders['access-control-allow-origin'] === VERCEL_ORIGIN ||
-        corsHeaders['access-control-allow-origin'] === '*') {
+    // Use curl to simulate browser CORS preflight
+    const { stdout } = await execAsync(
+      `curl -H "Origin: ${VERCEL_ORIGIN}" -H "Access-Control-Request-Method: GET" -X OPTIONS -v "${APPWRITE_ENDPOINT}/account" 2>&1`
+    );
+    
+    if (stdout.includes(`access-control-allow-origin: ${VERCEL_ORIGIN}`)) {
       console.log('✅ CORS configured correctly for Vercel origin');
+      return true;
+    } else if (stdout.includes('access-control-allow-origin: *')) {
+      console.log('⚠️ CORS allows all origins (wildcard) - consider restricting for production');
+      return true;
     } else {
       console.log('❌ CORS not configured for Vercel origin');
-      console.log(`Expected: ${VERCEL_ORIGIN} or *`);
-      console.log(`Received: ${corsHeaders['access-control-allow-origin']}`);
+      console.log('Response headers:', stdout.match(/access-control-allow-origin:.*/gi));
+      return false;
     }
-
   } catch (error) {
     console.error('Error testing CORS:', error);
+    return false;
   }
 }
+
+testCORS();
 
 testCORS();

@@ -22,14 +22,14 @@ export const usePlayerManager = () => {
   const playerRef = useRef<any>(null);
 
   // Initialize YouTube player
-  const initializePlayer = useCallback((videoId: string) => {
-    // TODO: Initialize YouTube iframe API player
-    setPlayerState(prev => ({
-      ...prev,
-      currentTrack: videoId,
-      currentVideoId: videoId,
-    }));
-  }, []);
+  // const initializePlayer = useCallback((videoId: string) => {
+  //   // TODO: Initialize YouTube iframe API player
+  //   setPlayerState(prev => ({
+  //     ...prev,
+  //     currentTrack: videoId,
+  //     currentVideoId: videoId,
+  //   }));
+  // }, []);
 
   // Play track
   const play = useCallback(() => {
@@ -63,12 +63,21 @@ export const usePlayerManager = () => {
   }, []);
 
   // Seek to time
-  const seekTo = useCallback((time: number) => {
-    if (playerRef.current) {
-      // TODO: playerRef.current.seekTo(time);
-    }
-    setPlayerState(prev => ({ ...prev, currentTime: time }));
-  }, []);
+  // const seekTo = useCallback((time: number) => {
+  //   if (playerRef.current) {
+  //     // TODO: playerRef.current.seekTo(time);
+  //   }
+  //   setPlayerState(prev => ({ ...prev, currentTime: time }));
+  // }, []);
 
   const setCurrentVideoId = useCallback((videoId: string | null) => setPlayerState(prev => ({ ...prev, currentVideoId: videoId })), []);
+
+  return {
+    playerState,
+    play,
+    pause,
+    nextTrack,
+    playTrack,
+    setCurrentVideoId,
+  };
 };

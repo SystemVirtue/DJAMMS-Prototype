@@ -116,7 +116,7 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
 
     // TODO: Re-enable realtime when Appwrite SDK supports it
     // For now, just fetch initial queue
-    const fetchInitialQueue = async () => {
+    const fetchInitialQueue = useCallback(async () => {
       try {
         const response = await databases.listDocuments(
           import.meta.env.VITE_APPWRITE_DATABASE_ID,
@@ -130,9 +130,11 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
       } catch (error) {
         console.error('Error fetching initial queue:', error);
       }
-    };
+    }, [venueId, databases]);
 
-    fetchInitialQueue();
+    useEffect(() => {
+      fetchInitialQueue();
+    }, [fetchInitialQueue]);
   }, [venueId, databases, isTestMode]);
 
   const value: RealtimeQueueContextType = {
@@ -202,7 +204,7 @@ export const AppwriteProvider: React.FC<AppwriteProviderProps> = ({ children }) 
 
   const login = async (email: string) => {
     try {
-      await account.createEmailToken(
+      await account.createMagicURLSession(
         'unique()', // userId - would come from registration
         email
       );

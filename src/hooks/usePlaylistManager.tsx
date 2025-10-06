@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAppwrite } from '../contexts/AppwriteContext';
 import { useVideoSearch } from './useVideoSearch';
 import { toast } from 'sonner';
+import { Query } from 'appwrite';
 
 // Global test queue for test mode
 let globalTestQueue: Track[] = [];
@@ -168,7 +169,7 @@ export const usePlaylistManager = () => {
       const response = await databases.listDocuments(
         import.meta.env.VITE_APPWRITE_DATABASE_ID,
         'queues',
-        [`equal(venueId, "${currentVenue}")`]
+        [Query.equal('venueId', currentVenue)]
       );
 
       const docId = response.documents.length > 0 ? response.documents[0].$id : 'unique()';
@@ -184,6 +185,11 @@ export const usePlaylistManager = () => {
       );
     } catch (error) {
       console.error('Error adding track:', error);
+      // Handle 400 query syntax error
+      if ((error as any).code === 400) {
+        toast.error('Query failed: Check SDK version');
+        setQueue([]);
+      }
       // Revert on error
       setQueue(queue);
     }

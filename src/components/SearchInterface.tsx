@@ -43,7 +43,7 @@ export const SearchInterface: React.FC<SearchInterfaceProps> = ({ onVideoSelect 
         url: `https://www.youtube.com/watch?v=${selectedVideo.id}`,
         priority,
       });
-      toast.success(`Added "${selectedVideo.title}" to queue with ${priority} priority`);
+      toast.success('Added to queue', { duration: 2000 });
       setSelectedVideo(null);
       setSearchQuery('');
       clearResults();

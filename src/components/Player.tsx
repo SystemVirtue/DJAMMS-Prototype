@@ -97,13 +97,14 @@ const PlayerContent: React.FC = React.memo(() => {
           <CardContent className="p-4">
             <Accordion data-testid="queue" type="single" collapsible className="w-full">
               {queue.map((track, index) => (
-                <AccordionItem key={track.id} data-testid="queue-item" value={`item-${index}`}>
+                <AccordionItem key={track.id || index} data-testid="queue-item" value={`item-${index}`}>
                   <AccordionTrigger className="text-white hover:text-amber-400">
                     {track.title}
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="flex items-center gap-2">
                       <Badge
+                        key={`badge-${track.id}`}
                         data-testid="priority-badge"
                         variant="secondary"
                         className={
