@@ -87,16 +87,11 @@ export const usePlaylistManager = () => {
         [Query.equal('venueId', currentVenue)]
       );
       if (response.documents.length > 0) {
-        const sortedQueue = sortQueueByPriority(response.documents[0].queue || []);
-        setQueue(sortedQueue);
+        setQueue(response.documents[0]?.queue || []);
       }
     } catch (error) {
-      if ((error as any).code === 400) {
-        console.warn('Query syntax fixed? Check SDK version.');
-        toast.error('Queue load failed—using empty.');
-      } else {
-        console.error('Error loading queue:', error);
-      }
+      if ((error as any).code === 400) toast.error('Query error—check syntax');
+      setQueue([]);
     } finally {
       setLoading(false);
     }

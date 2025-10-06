@@ -116,7 +116,7 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
 
     // TODO: Re-enable realtime when Appwrite SDK supports it
     // For now, just fetch initial queue
-    const fetchInitialQueue = useCallback(async () => {
+    const fetchQueue = useCallback(async () => {
       try {
         const response = await databases.listDocuments(
           import.meta.env.VITE_APPWRITE_DATABASE_ID,
@@ -130,11 +130,11 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
       } catch (error) {
         console.error('Error fetching initial queue:', error);
       }
-    }, [venueId, databases]);
+    }, [venueId]);
 
     useEffect(() => {
-      fetchInitialQueue();
-    }, [fetchInitialQueue]);
+      fetchQueue();
+    }, [fetchQueue]);
   }, [venueId, databases, isTestMode]);
 
   const value: RealtimeQueueContextType = {
