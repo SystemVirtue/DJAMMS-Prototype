@@ -4,6 +4,7 @@ import { usePlayerManager } from '../hooks/usePlayerManager';
 import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
+import ErrorBoundary from './ErrorBoundary';
 
 const Marquee: React.FC<{ text: string; className?: string }> = ({ text, className = '' }) => {
   return (
@@ -118,7 +119,9 @@ const KioskEmbedContent: React.FC = () => {
 const KioskEmbed: React.FC = () => {
   return (
     <RealtimeQueueProvider venueId="venue1">
-      <KioskEmbedContent />
+      <ErrorBoundary>
+        <KioskEmbedContent />
+      </ErrorBoundary>
     </RealtimeQueueProvider>
   );
 };

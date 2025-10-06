@@ -130,11 +130,11 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
       } catch (error) {
         console.error('Error fetching initial queue:', error);
       }
-    }, [venueId]);
+    }, [venueId, import.meta.env.VITE_APPWRITE_DATABASE_ID]);
 
     useEffect(() => {
       fetchQueue();
-    }, [fetchQueue]);
+    }, []);
   }, [venueId, databases, isTestMode]);
 
   const value: RealtimeQueueContextType = {
