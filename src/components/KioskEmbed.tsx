@@ -78,8 +78,8 @@ const KioskEmbedContent: React.FC = () => {
         <h3 className="text-white text-lg font-semibold p-4">Up Next</h3>
         <ScrollArea className="flex-1 p-4">
           <div data-testid="up-next" className="space-y-2">
-            {queue.slice(1).map((track) => (
-              <Card key={track.id} data-testid="up-next-item" className="bg-slate-800 border-slate-600">
+            {queue.slice(1).map((track, index) => (
+              <Card key={track.id || `track-${index}`} data-testid="up-next-item" className="bg-slate-800 border-slate-600">
                 <CardContent className="p-3 flex items-center gap-3">
                   <img
                     src={`https://img.youtube.com/vi/${track.id}/default.jpg`}
@@ -89,6 +89,7 @@ const KioskEmbedContent: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-medium truncate">{track.title}</p>
                     <Badge
+                      key={`badge-${track.id}-${track.priority}`}
                       data-testid="priority-badge"
                       variant="secondary"
                       className={

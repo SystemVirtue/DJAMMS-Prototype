@@ -104,7 +104,7 @@ const PlayerContent: React.FC = React.memo(() => {
                   <AccordionContent>
                     <div className="flex items-center gap-2">
                       <Badge
-                        key={`badge-${track.id}`}
+                        key={`badge-${track.id}-${track.priority}`}
                         data-testid="priority-badge"
                         variant="secondary"
                         className={

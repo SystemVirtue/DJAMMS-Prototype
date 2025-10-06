@@ -84,14 +84,19 @@ export const usePlaylistManager = () => {
       const response = await databases.listDocuments(
         import.meta.env.VITE_APPWRITE_DATABASE_ID,
         'queues',
-        [`equal("venueId", "${currentVenue}")`]
+        [Query.equal('venueId', currentVenue)]
       );
       if (response.documents.length > 0) {
         const sortedQueue = sortQueueByPriority(response.documents[0].queue || []);
         setQueue(sortedQueue);
       }
     } catch (error) {
-      console.error('Error loading queue:', error);
+      if ((error as any).code === 400) {
+        console.warn('Query syntax fixed? Check SDK version.');
+        toast.error('Queue load failed—using empty.');
+      } else {
+        console.error('Error loading queue:', error);
+      }
     } finally {
       setLoading(false);
     }
