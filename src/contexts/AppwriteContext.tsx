@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { Client, Databases, Account, Query } from 'appwrite';
 
@@ -65,7 +65,7 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
 
   useEffect(() => {
     if (isTestMode && typeof window !== 'undefined') {
-      const syncWithStorage = useCallback(() => {
+      const syncWithStorage = () => {
         try {
           const stored = localStorage.getItem(TEST_QUEUE_STORAGE_KEY);
           if (stored) {
@@ -83,7 +83,7 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
         } catch (error) {
           console.error('Error syncing test queue from storage:', error);
         }
-      }, []);
+      };
 
       syncWithStorage(); // Initial
 
@@ -109,7 +109,7 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
     }
 
     // Non-test fetch (unchanged)
-    const fetchQueue = useCallback(async () => {
+    const fetchQueue = async () => {
       try {
         const response = await databases.listDocuments(
           import.meta.env.VITE_APPWRITE_DATABASE_ID,
@@ -123,12 +123,11 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
       } catch (error) {
         console.error('Error fetching initial queue:', error);
       }
-    }, [venueId, databases]);
+    };
 
-    useEffect(() => {
-      fetchQueue();
-    }, [fetchQueue]);
-  }, [venueId, databases, isTestMode, setQueue]);
+    // Fetch initial queue once
+    fetchQueue();
+  }, [venueId, databases, isTestMode]);
 
   const value: RealtimeQueueContextType = {
     queue,
