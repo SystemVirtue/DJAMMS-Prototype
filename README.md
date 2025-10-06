@@ -71,3 +71,35 @@ export default defineConfig([
   },
 ])
 ```
+
+
+## Deployment
+
+### Vercel Deployment
+
+1. Connect your GitHub repository to Vercel
+2. Set the following environment variables in Vercel dashboard:
+   - `VITE_APPWRITE_ENDPOINT=https://syd.cloud.appwrite.io/v1`
+   - `VITE_APPWRITE_PROJECT_ID=68cc86c3002b27e13947`
+   - `VITE_APPWRITE_DATABASE_ID=68cc92d30024e1b6eeb6`
+   - `VITE_APPWRITE_API_KEY=standard_25289fad1759542a75506309bd927c04928587ec211c9da1b7ab1817d5fb4a67e2aee4fcd29c36738d9fb2e2e8fe0379f7da761f150940a6d0fe6e89a08cc2d1e5cc95720132db4ed19a13396c9c779c467223c754acbc57abfb48469b866bfccce774903a8de9a93b55f65d2b30254447cb6664661d378b3722a979d9d71f92`
+   - `VITE_YOUTUBE_API_KEY=AIzaSyCdLbPNZnlHlXbk4XUUyp0of1G8_ru_Few`
+
+3. **Important: Configure CORS in Appwrite**
+   - Go to your [Appwrite Cloud Console](https://cloud.appwrite.io)
+   - Navigate to your project → Settings → Platforms
+   - Add a new Web platform with:
+     - **Name:** Vercel Deployment
+     - **Hostname:** `djamms-prototype.vercel.app`
+     - **Protocol:** HTTPS
+   - Save the changes
+
+This will allow your deployed app to communicate with Appwrite without CORS errors.
+
+### Local Development
+
+1. Copy `.env.example` to `.env` and fill in your Appwrite credentials
+2. Run `npm install`
+3. Run `npm run dev` for development server
+4. Run `npm run build` for production build
+5. Run `npx playwright test` for E2E tests
