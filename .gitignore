@@ -1,1 +1,20 @@
-node_modules\ndist\n.env\n.env.local\n.vercel
+node_modules
+/dist
+.env
+.env.local
+.vercel
+
+# Playwright reports
+/playwright-report
+
+# Build assets
+/dist/assets
+
+# Test storage/state
+/test-storage.json
+
+# Logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
