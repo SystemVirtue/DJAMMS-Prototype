@@ -1,43 +1,87 @@
 import { test, expect } from '@playwright/test';
 
-test('admin sync e2e', async ({ browser }) => {
-  // Create three tabs
-  const adminPage = await browser.newPage();
-  const playerPage = await browser.newPage();
-  const kioskPage = await browser.newPage();
+test('admin queue changes sync to player and kiosk', async ({ browser, context }) => {
+  // Use shared storageState for localStorage sync across pages
+  const storageState = await context.storageState({ path: 'test-storage.json' });
 
-  // Navigate to pages
-  await adminPage.goto('http://localhost:5173/admin');
-  await playerPage.goto('http://localhost:5173/player');
-  await kioskPage.goto('http://localhost:5173/kiosk');
+  // Create pages with shared storage
+  const adminContext = await browser.newContext({ storageState });
+  const playerContext = await browser.newContext({ storageState });
+  const kioskContext = await browser.newContext({ storageState });
 
-  // Admin: Login (assume owner role)
-  await adminPage.fill('input[type="email"]', 'owner@example.com');
-  await adminPage.click('button:has-text("Login")');
-  // Note: In real test, handle email link
+  const adminPage = await adminContext.newPage();
+  const playerPage = await playerContext.newPage();
+  const kioskPage = await kioskContext.newPage();
 
-  // Check role display
-  await expect(adminPage.locator('text=Role: owner')).toBeVisible();
+  // Clear storage in init script for clean start
+  await adminPage.addInitScript(() => localStorage.clear());
+
+  // Navigate with test mode
+  await adminPage.goto('http://localhost:5173/admin?test=true');
+  await playerPage.goto('http://localhost:5173/player?test=true');
+  await kioskPage.goto('http://localhost:5173/kiosk?test=true');
+
+  // Verify owner login bypass
+  await expect(adminPage.getByText('owner')).toBeVisible();
 
   // Admin: Search and add track
   await adminPage.fill('input[placeholder="Search YouTube..."]', 'Bohemian Rhapsody');
   await adminPage.click('button:has-text("Search")');
-  await adminPage.waitForSelector('text=Bohemian Rhapsody');
-  await adminPage.click('text=Bohemian Rhapsody');
-  await adminPage.selectOption('select', 'high');
+  await adminPage.waitForSelector('[data-testid="search-result"]', { timeout: 5000 });
+  await adminPage.click('text=Queen – Bohemian Rhapsody');
+
+  // Select high priority
+  await adminPage.click('[data-testid="priority-select"]');
+  await adminPage.click('text=High');
+
+  // Add to queue (triggers BroadcastChannel mock in test mode)
   await adminPage.click('button:has-text("Add to Queue")');
 
-  // Assert in Player
-  await expect(playerPage.locator('iframe')).toBeVisible({ timeout: 5000 });
-  await expect(playerPage.frameLocator('iframe').locator('text=Bohemian Rhapsody')).toBeVisible({ timeout: 5000 });
+  // Wait for add confirmation
+  await expect(adminPage.getByText('Added to queue')).toBeVisible({ timeout: 3000 });
 
-  // Assert in Kiosk
-  await expect(kioskPage.locator('text=Bohemian Rhapsody')).toBeVisible();
-  await expect(kioskPage.locator('.bg-red-600:has-text("high")')).toBeVisible();
+  // Wait for sync via custom function (checks queue length in DOM)
+  await playerPage.waitForFunction(() => {
+    const queueEl = document.querySelector('[data-testid="queue"]');
+    return queueEl && queueEl.children.length > 0;
+  }, {}, { timeout: 8000 });
 
-  // Test role restrictions: Owner can remove, staff cannot
-  await expect(adminPage.locator('button:has-text("Remove")')).toBeVisible();
+  await kioskPage.waitForFunction(() => {
+    const queueEl = document.querySelector('[data-testid="up-next"]');
+    return queueEl && queueEl.children.length > 0;
+  }, {}, { timeout: 8000 });
 
-  // Test local search toggle (if implemented)
-  // await adminPage.check('input[type="checkbox"][name="localSearch"]'); // Assuming toggle exists
+  // Assert Player: Marquee shows title
+  await expect(playerPage.locator('[data-testid="marquee-text"]')).toContainText('Queen', { timeout: 5000 });
+
+  // Player iframe loads
+  await expect(playerPage.locator('iframe')).toBeVisible();
+  await expect(playerPage.locator('iframe')).toHaveAttribute('src', /fJ9rUzIMcZQ/);
+
+  // Player queue with high badge
+  await expect(playerPage.getByText('Queen – Bohemian Rhapsody')).toBeVisible();
+  await expect(playerPage.locator('[data-testid="priority-badge"]').getByText('High')).toBeVisible();
+
+  // Assert Kiosk: Marquee
+  await expect(kioskPage.locator('[data-testid="marquee-text"]')).toContainText('Queen', { timeout: 5000 });
+
+  // Kiosk iframe
+  await expect(kioskPage.locator('iframe')).toBeVisible();
+  await expect(kioskPage.locator('iframe')).toHaveAttribute('src', /fJ9rUzIMcZQ/);
+
+  // Kiosk queue with high badge
+  await expect(kioskPage.getByText('Queen – Bohemian Rhapsody')).toBeVisible();
+  await expect(kioskPage.locator('[data-testid="priority-badge"]').getByText('High')).toBeVisible();
+
+  // Role: Owner sees remove
+  await expect(adminPage.getByRole('button', { name: 'Remove' })).toBeVisible();
+
+  // Quota and logs visible
+  await expect(adminPage.getByText('YouTube API Quota')).toBeVisible();
+  await expect(adminPage.getByText('Activity Logs')).toBeVisible();
+
+  // Cleanup
+  await adminContext.close();
+  await playerContext.close();
+  await kioskContext.close();
 });

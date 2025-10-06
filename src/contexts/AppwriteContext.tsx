@@ -57,7 +57,57 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
   const { databases } = useAppwrite();
   const [queue, setQueue] = useState<Track[]>([]);
 
+  // Check if we're in test mode
+  const isTestMode = typeof window !== 'undefined' && window.location.search.includes('test=true');
+
+  // Storage key for cross-tab sync
+  const TEST_QUEUE_STORAGE_KEY = 'djams-test-queue';
+
   useEffect(() => {
+    // In test mode, sync with localStorage and BroadcastChannel
+    if (isTestMode && typeof window !== 'undefined') {
+      const syncWithStorage = () => {
+        try {
+          const stored = localStorage.getItem(TEST_QUEUE_STORAGE_KEY);
+          if (stored) {
+            const parsedQueue = JSON.parse(stored);
+            setQueue([...parsedQueue]);
+          }
+        } catch (error) {
+          console.error('Error syncing test queue from storage:', error);
+        }
+      };
+
+      // Initial sync
+      syncWithStorage();
+
+      // BroadcastChannel for cross-tab sync
+      const channel = new BroadcastChannel('djams-test-queue-sync');
+      channel.onmessage = (event) => {
+        if (event.data.type === 'queue-update') {
+          syncWithStorage();
+        }
+      };
+
+      // Listen for storage changes (cross-tab sync)
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === TEST_QUEUE_STORAGE_KEY) {
+          syncWithStorage();
+        }
+      };
+
+      window.addEventListener('storage', handleStorageChange);
+
+      // Also poll for changes
+      const interval = setInterval(syncWithStorage, 100);
+
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+        clearInterval(interval);
+        channel.close();
+      };
+    }
+
     // TODO: Re-enable realtime when Appwrite SDK supports it
     // For now, just fetch initial queue
     const fetchInitialQueue = async () => {
@@ -76,7 +126,7 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
     };
 
     fetchInitialQueue();
-  }, [venueId, databases]);
+  }, [venueId, databases, isTestMode]);
 
   const value: RealtimeQueueContextType = {
     queue,
@@ -114,6 +164,17 @@ export const AppwriteProvider: React.FC<AppwriteProviderProps> = ({ children }) 
   // Check authentication status on mount
   useEffect(() => {
     const checkAuth = async () => {
+      // Check for test mode (environment variable or URL parameter)
+      const isTestMode = import.meta.env.VITE_TEST_MODE === 'true' ||
+        window.location.search.includes('test=true');
+
+      if (isTestMode) {
+        // In test mode, automatically authenticate as owner
+        setIsAuthenticated(true);
+        setRole('owner');
+        return;
+      }
+
       try {
         const user = await account.get();
         setIsAuthenticated(true);

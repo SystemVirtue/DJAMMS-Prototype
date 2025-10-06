@@ -47,6 +47,15 @@ export const usePlayerManager = () => {
     setPlayerState(prev => ({ ...prev, isPlaying: false }));
   };
 
+  // Play specific track
+  const playTrack = (videoId: string) => {
+    setPlayerState(prev => ({
+      ...prev,
+      currentVideoId: videoId,
+      isPlaying: true,
+    }));
+  };
+
   // Next track
   const nextTrack = () => {
     // TODO: Get next track from queue and play it
@@ -69,6 +78,7 @@ export const usePlayerManager = () => {
     pause,
     nextTrack,
     seekTo,
+    playTrack,
     setCurrentVideoId: (videoId: string | null) => setPlayerState(prev => ({ ...prev, currentVideoId: videoId })),
   };
 };

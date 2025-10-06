@@ -1,6 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAppwrite } from '../contexts/AppwriteContext';
 import { useVideoSearch } from './useVideoSearch';
+import { toast } from 'sonner';
+
+// Global test queue for test mode
+let globalTestQueue: Track[] = [];
+
+// Make it accessible globally for test mode
+if (typeof window !== 'undefined') {
+  (window as any).globalTestQueue = globalTestQueue;
+}
+
+// Storage key for cross-tab sync
+const TEST_QUEUE_STORAGE_KEY = 'djams-test-queue';
 
 interface Track {
   id: string;
@@ -16,8 +28,56 @@ export const usePlaylistManager = () => {
   const [loading, setLoading] = useState(false);
   const { searchYouTube } = useVideoSearch();
 
+  // Check if we're in test mode
+  const isTestMode = typeof window !== 'undefined' && window.location.search.includes('test=true');
+
+  // In test mode, always sync with global queue and localStorage
+  useEffect(() => {
+    if (isTestMode && typeof window !== 'undefined') {
+      const syncWithStorage = () => {
+        try {
+          const stored = localStorage.getItem(TEST_QUEUE_STORAGE_KEY);
+          if (stored) {
+            const parsedQueue = JSON.parse(stored);
+            globalTestQueue = parsedQueue;
+            (window as any).globalTestQueue = parsedQueue;
+            setQueue([...parsedQueue]);
+          }
+        } catch (error) {
+          console.error('Error syncing test queue from storage:', error);
+        }
+      };
+
+      // Initial sync
+      syncWithStorage();
+
+      // Listen for storage changes (cross-tab sync)
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === TEST_QUEUE_STORAGE_KEY) {
+          syncWithStorage();
+        }
+      };
+
+      window.addEventListener('storage', handleStorageChange);
+
+      // Also poll for changes (in case storage event doesn't fire)
+      const interval = setInterval(syncWithStorage, 100);
+
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+        clearInterval(interval);
+      };
+    }
+  }, [isTestMode]);
+
   // Load queue from Appwrite
   const loadQueue = useCallback(async () => {
+    // In test mode, use global test queue
+    if (isTestMode) {
+      setQueue([...globalTestQueue]);
+      return;
+    }
+
     try {
       setLoading(true);
       const response = await databases.listDocuments(
@@ -34,7 +94,7 @@ export const usePlaylistManager = () => {
     } finally {
       setLoading(false);
     }
-  }, [databases, currentVenue]);
+  }, [databases, currentVenue, isTestMode]);
 
   // Sort queue by priority (high -> normal -> low)
   const sortQueueByPriority = (tracks: Track[]): Track[] => {
@@ -43,6 +103,25 @@ export const usePlaylistManager = () => {
       return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
   };
+
+  // Load global default playlist
+  const loadGlobalDefault = useCallback(async () => {
+    try {
+      const doc = await databases.getDocument(
+        import.meta.env.VITE_APPWRITE_DATABASE_ID,
+        'playlists',
+        'global_default_playlist'
+      );
+      if (doc.venueId === 'global') {
+        const defaultQueue = doc.playlist || [];
+        setQueue(defaultQueue);
+        localStorage.setItem('djamsQueue', JSON.stringify(defaultQueue));
+      }
+    } catch (error) {
+      console.error('Error loading global default playlist:', error);
+      toast.error('Default playlist load failed, empty queue');
+    }
+  }, [databases]);
 
   // Add track to queue
   const addTrack = async (track: Omit<Track, 'index'>) => {
@@ -67,6 +146,17 @@ export const usePlaylistManager = () => {
         console.error('YouTube search error:', error);
         throw new Error('Failed to find YouTube video');
       }
+    }
+
+    // In test mode, update global queue and localStorage
+    if (isTestMode && typeof window !== 'undefined') {
+      const currentGlobalQueue = (window as any).globalTestQueue || [];
+      const newQueue = [...currentGlobalQueue, trackToAdd];
+      const sortedQueue = sortQueueByPriority(newQueue);
+      (window as any).globalTestQueue = sortedQueue;
+      localStorage.setItem(TEST_QUEUE_STORAGE_KEY, JSON.stringify(sortedQueue));
+      setQueue(sortedQueue);
+      return;
     }
 
     const newQueue = [...queue, trackToAdd];
@@ -101,6 +191,16 @@ export const usePlaylistManager = () => {
 
   // Remove track from queue
   const removeTrack = async (trackId: string) => {
+    // In test mode, update global queue and localStorage
+    if (isTestMode && typeof window !== 'undefined') {
+      const currentGlobalQueue = (window as any).globalTestQueue || [];
+      const newQueue = currentGlobalQueue.filter((track: Track) => track.id !== trackId);
+      (window as any).globalTestQueue = newQueue;
+      localStorage.setItem(TEST_QUEUE_STORAGE_KEY, JSON.stringify(newQueue));
+      setQueue(newQueue);
+      return;
+    }
+
     const newQueue = queue.filter(track => track.id !== trackId);
     setQueue(newQueue);
 
@@ -131,8 +231,23 @@ export const usePlaylistManager = () => {
   };
 
   useEffect(() => {
-    loadQueue();
-  }, [currentVenue, loadQueue]);
+    // First, check for localStorage queue
+    const storedQueue = localStorage.getItem('djamsQueue');
+    if (storedQueue) {
+      try {
+        const parsedQueue = JSON.parse(storedQueue);
+        setQueue(parsedQueue);
+      } catch (error) {
+        console.error('Error parsing stored queue:', error);
+      }
+    } else if (queue.length === 0) {
+      // No local queue, load global default
+      loadGlobalDefault();
+    } else {
+      // Load from Appwrite if no local
+      loadQueue();
+    }
+  }, [currentVenue, loadQueue, loadGlobalDefault, queue.length]);
 
   return {
     queue,

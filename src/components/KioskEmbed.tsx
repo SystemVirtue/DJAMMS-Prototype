@@ -1,66 +1,108 @@
 import React, { useEffect } from 'react';
 import { RealtimeQueueProvider, useRealtimeQueue } from '../contexts/AppwriteContext';
+import { usePlayerManager } from '../hooks/usePlayerManager';
+import { ScrollArea } from './ui/scroll-area';
+import { Badge } from './ui/badge';
+import { Card, CardContent } from './ui/card';
+
+const Marquee: React.FC<{ text: string; className?: string }> = ({ text, className = '' }) => {
+  return (
+    <div className={`whitespace-nowrap animate-marquee w-full ${className}`}>
+      <span data-testid="marquee-text" className="text-2xl font-bold text-amber-400">
+        {text}
+      </span>
+    </div>
+  );
+};
 
 const KioskEmbedContent: React.FC = () => {
   const { queue } = useRealtimeQueue();
+  const { playerState, playTrack, setCurrentVideoId } = usePlayerManager();
+
+  const currentTrack = queue.length > 0 ? queue[0] : null;
 
   useEffect(() => {
+    // Request fullscreen on mount
     if (document.fullscreenElement === null) {
       document.documentElement.requestFullscreen().catch(console.error);
     }
-
-    const handleFullscreenChange = () => {
-      if (document.fullscreenElement === null) {
-        // Optionally handle exit fullscreen
-      }
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  useEffect(() => {
+    if (queue.length > 0) {
+      const videoId = queue[0].id;
+      setCurrentVideoId(videoId);
+      if (!playerState.isPlaying) {
+        setTimeout(() => playTrack(videoId), 500);
+      }
+    } else {
+      setCurrentVideoId(null);
+    }
+    console.log('KioskEmbed queue:', queue);
+  }, [queue, setCurrentVideoId, playerState.isPlaying, playTrack]);
+
   return (
-    <div className="min-h-screen bg-black flex flex-col">
+    <div className="fixed inset-0 bg-black flex flex-col z-0 overflow-hidden">
+      {/* Top 1/4: Marquee now-playing */}
       <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-8 text-white">DJAMMS Kiosk</h1>
-          <div className="bg-gray-800 rounded-lg p-8 max-w-2xl mx-auto">
-            <div className="mb-6">
-              <h2 className="text-2xl mb-4">Now Playing</h2>
-              <div className="bg-gray-700 rounded p-4">
-                {queue.length > 0 ? (
-                  <div>
-                    <p className="text-white font-medium text-lg">{queue[0].title}</p>
-                    <div className="mt-4 aspect-video bg-gray-600 rounded flex items-center justify-center">
-                      <span className="text-gray-400">YouTube Player</span>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-300">No tracks in queue</p>
-                )}
-              </div>
-            </div>
-            <div>
-              <h3 className="text-xl mb-4">Up Next ({queue.length - 1} tracks)</h3>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {queue.slice(1).map((track) => (
-                  <div key={track.id} className="bg-gray-700 rounded p-3">
-                    <p className="text-gray-300">{track.title}</p>
-                    <span className={`inline-block mt-1 px-2 py-1 rounded text-xs ${
-                      track.priority === 'high' ? 'bg-red-600' :
-                      track.priority === 'normal' ? 'bg-yellow-600' : 'bg-green-600'
-                    }`}>
-                      {track.priority}
-                    </span>
-                  </div>
-                ))}
-                {queue.length <= 1 && (
-                  <p className="text-gray-500">No upcoming tracks</p>
-                )}
-              </div>
-            </div>
+        <Marquee
+          text={currentTrack ? currentTrack.title : 'No track playing'}
+        />
+      </div>
+
+      {/* Middle 2/4: Iframe */}
+      <div className="flex-1 flex items-center justify-center">
+        {playerState.currentVideoId ? (
+          <iframe
+            src={`https://www.youtube.com/embed/${playerState.currentVideoId}?autoplay=1&controls=0&rel=0&modestbranding=1&showinfo=0`}
+            title="YouTube Player"
+            className="h-full w-full border-none"
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+          />
+        ) : (
+          <div className="h-full w-full bg-slate-800 flex items-center justify-center">
+            <p className="text-slate-400 text-2xl">No track playing</p>
           </div>
-        </div>
+        )}
+      </div>
+
+      {/* Bottom 1/4: ScrollArea queue */}
+      <div className="flex-1 flex flex-col">
+        <h3 className="text-white text-lg font-semibold p-4">Up Next</h3>
+        <ScrollArea className="flex-1 p-4">
+          <div data-testid="up-next" className="space-y-2">
+            {queue.slice(1).map((track) => (
+              <Card key={track.id} data-testid="queue-item" className="bg-slate-800 border-slate-600">
+                <CardContent className="p-3 flex items-center gap-3">
+                  <img
+                    src={`https://img.youtube.com/vi/${track.id}/default.jpg`}
+                    alt={track.title}
+                    className="w-16 h-12 rounded object-cover"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium truncate">{track.title}</p>
+                    <Badge
+                      data-testid="priority-badge"
+                      variant="secondary"
+                      className={
+                        track.priority === 'high' ? 'bg-red-500' :
+                        track.priority === 'normal' ? 'bg-yellow-500' : 'bg-green-500'
+                      }
+                    >
+                      {track.priority}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {queue.length <= 1 && (
+              <div className="text-center py-8">
+                <p className="text-slate-400">No upcoming tracks</p>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );
