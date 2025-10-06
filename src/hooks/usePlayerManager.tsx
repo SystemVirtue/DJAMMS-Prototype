@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
 interface PlayerState {
   currentTrack: string | null;
@@ -22,63 +22,53 @@ export const usePlayerManager = () => {
   const playerRef = useRef<any>(null);
 
   // Initialize YouTube player
-  const initializePlayer = (videoId: string) => {
+  const initializePlayer = useCallback((videoId: string) => {
     // TODO: Initialize YouTube iframe API player
     setPlayerState(prev => ({
       ...prev,
       currentTrack: videoId,
       currentVideoId: videoId,
     }));
-  };
+  }, []);
 
   // Play track
-  const play = () => {
+  const play = useCallback(() => {
     if (playerRef.current) {
       // TODO: playerRef.current.playVideo();
     }
     setPlayerState(prev => ({ ...prev, isPlaying: true }));
-  };
+  }, []);
 
   // Pause track
-  const pause = () => {
+  const pause = useCallback(() => {
     if (playerRef.current) {
       // TODO: playerRef.current.pauseVideo();
     }
     setPlayerState(prev => ({ ...prev, isPlaying: false }));
-  };
+  }, []);
 
   // Play specific track
-  const playTrack = (videoId: string) => {
+  const playTrack = useCallback((videoId: string) => {
     setPlayerState(prev => ({
       ...prev,
       currentVideoId: videoId,
       isPlaying: true,
     }));
-  };
+  }, []);
 
   // Next track
-  const nextTrack = () => {
+  const nextTrack = useCallback(() => {
     // TODO: Get next track from queue and play it
     console.log('Next track requested');
-  };
+  }, []);
 
   // Seek to time
-  const seekTo = (time: number) => {
+  const seekTo = useCallback((time: number) => {
     if (playerRef.current) {
       // TODO: playerRef.current.seekTo(time);
     }
     setPlayerState(prev => ({ ...prev, currentTime: time }));
-  };
+  }, []);
 
-  return {
-    playerState,
-    playerRef,
-    initializePlayer,
-    play,
-    pause,
-    nextTrack,
-    seekTo,
-    playTrack,
-    setCurrentVideoId: (videoId: string | null) => setPlayerState(prev => ({ ...prev, currentVideoId: videoId })),
-  };
+  const setCurrentVideoId = useCallback((videoId: string | null) => setPlayerState(prev => ({ ...prev, currentVideoId: videoId })), []);
 };
