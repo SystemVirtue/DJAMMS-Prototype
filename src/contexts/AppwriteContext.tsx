@@ -70,17 +70,20 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
           const stored = localStorage.getItem(TEST_QUEUE_STORAGE_KEY);
           if (stored) {
             const parsedQueue = JSON.parse(stored);
-            setQueue(prev => {
-              if (JSON.stringify(prev) !== JSON.stringify(parsedQueue)) {
-                return [...parsedQueue];
-              }
-              return prev;
-            });
+            // Defer setQueue to post-render
+            setTimeout(() => {
+              setQueue(prev => {
+                if (JSON.stringify(prev) !== JSON.stringify(parsedQueue)) {
+                  return [...parsedQueue];
+                }
+                return prev;
+              });
+            }, 0);
           }
         } catch (error) {
           console.error('Error syncing test queue from storage:', error);
         }
-      }, [setQueue]);
+      }, []);
 
       syncWithStorage(); // Initial
 
@@ -125,7 +128,7 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
     useEffect(() => {
       fetchQueue();
     }, [fetchQueue]);
-  }, [venueId, databases, isTestMode]);
+  }, [venueId, databases, isTestMode, setQueue]);
 
   const value: RealtimeQueueContextType = {
     queue,
