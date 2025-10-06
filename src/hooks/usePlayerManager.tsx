@@ -48,7 +48,7 @@ export const usePlayerManager = () => {
   }, []);
 
   // Play specific track
-  const playTrack = useCallback((videoId: string) => {
+  const playTrack = useCallback(async (videoId: string) => {
     setPlayerState(prev => ({
       ...prev,
       currentVideoId: videoId,

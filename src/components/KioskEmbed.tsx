@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { RealtimeQueueProvider, useRealtimeQueue } from '../contexts/AppwriteContext';
 import { usePlayerManager } from '../hooks/usePlayerManager';
 import { ScrollArea } from './ui/scroll-area';
@@ -35,18 +35,22 @@ const KioskEmbedContent: React.FC = () => {
     requestFullscreen();
   }, []);
 
-  useEffect(() => {
+  const handleQueueChange = useCallback(() => {
     if (queue.length > 0) {
       const videoId = queue[0].id;
       setCurrentVideoId(videoId);
       if (!playerState.isPlaying) {
-        setTimeout(() => playTrack(videoId), 500);
+        setTimeout(() => playTrack(videoId), 0); // Defer to next tick
       }
     } else {
       setCurrentVideoId(null);
     }
     console.log('KioskEmbed queue:', queue);
-  }, [queue.length, setCurrentVideoId, playerState.isPlaying, playTrack]);
+  }, [queue.length]); // Deps: length only—no updaters
+
+  useEffect(() => {
+    handleQueueChange();
+  }, [queue.length]); // Deps: length only—no updaters
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col z-0 overflow-hidden">
