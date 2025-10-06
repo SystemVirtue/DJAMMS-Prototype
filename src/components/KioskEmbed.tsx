@@ -35,22 +35,24 @@ const KioskEmbedContent: React.FC = () => {
     requestFullscreen();
   }, []);
 
+  // Memoize handler to avoid deps on updaters
   const handleQueueChange = useCallback(() => {
     if (queue.length > 0) {
       const videoId = queue[0].id;
       setCurrentVideoId(videoId);
       if (!playerState.isPlaying) {
-        setTimeout(() => playTrack(videoId), 0); // Defer to next tick
+        // Defer to post-render
+        setTimeout(() => playTrack(videoId), 0);
       }
     } else {
       setCurrentVideoId(null);
     }
     console.log('KioskEmbed queue:', queue);
-  }, [queue.length]); // Deps: length only—no updaters
+  }, [queue.length, playerState.isPlaying]); // Length only; updaters stable, ignore ESLint
 
   useEffect(() => {
     handleQueueChange();
-  }, [queue.length]); // Deps: length only—no updaters
+  }, [handleQueueChange]); // Stable handler dep
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col z-0 overflow-hidden">
