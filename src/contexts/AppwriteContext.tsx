@@ -64,7 +64,6 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
   const TEST_QUEUE_STORAGE_KEY = 'djams-test-queue';
 
   useEffect(() => {
-    // In test mode, sync with localStorage and BroadcastChannel
     if (isTestMode && typeof window !== 'undefined') {
       const syncWithStorage = useCallback(() => {
         try {
@@ -72,7 +71,6 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
           if (stored) {
             const parsedQueue = JSON.parse(stored);
             setQueue(prev => {
-              // Only update if different to prevent loops
               if (JSON.stringify(prev) !== JSON.stringify(parsedQueue)) {
                 return [...parsedQueue];
               }
@@ -82,12 +80,10 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
         } catch (error) {
           console.error('Error syncing test queue from storage:', error);
         }
-      }, []);
+      }, [setQueue]);
 
-      // Initial sync
-      syncWithStorage();
+      syncWithStorage(); // Initial
 
-      // BroadcastChannel for cross-tab sync
       const channel = new BroadcastChannel('djams-test-queue-sync');
       channel.onmessage = (event) => {
         if (event.data.type === 'queue-update') {
@@ -95,7 +91,6 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
         }
       };
 
-      // Listen for storage changes (cross-tab sync)
       const handleStorageChange = (e: StorageEvent) => {
         if (e.key === TEST_QUEUE_STORAGE_KEY) {
           syncWithStorage();
@@ -104,18 +99,13 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
 
       window.addEventListener('storage', handleStorageChange);
 
-      // Also poll for changes
-      const interval = setInterval(syncWithStorage, 100);
-
       return () => {
         window.removeEventListener('storage', handleStorageChange);
-        clearInterval(interval);
         channel.close();
       };
     }
 
-    // TODO: Re-enable realtime when Appwrite SDK supports it
-    // For now, just fetch initial queue
+    // Non-test fetch (unchanged)
     const fetchQueue = useCallback(async () => {
       try {
         const response = await databases.listDocuments(
@@ -130,11 +120,11 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
       } catch (error) {
         console.error('Error fetching initial queue:', error);
       }
-    }, [venueId, import.meta.env.VITE_APPWRITE_DATABASE_ID]);
+    }, [venueId, databases]);
 
     useEffect(() => {
       fetchQueue();
-    }, []);
+    }, [fetchQueue]);
   }, [venueId, databases, isTestMode]);
 
   const value: RealtimeQueueContextType = {
