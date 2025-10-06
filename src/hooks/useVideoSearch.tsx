@@ -51,8 +51,24 @@ export const useVideoSearch = () => {
           `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=10&key=${apiKey}`
         );
 
+        // Handle non-OK responses (403/quota, HTML errors) with better diagnostics
         if (!response.ok) {
-          throw new Error('YouTube search failed');
+          if (response.status === 403) {
+            throw new Error('YouTube search returned 403 — quota exceeded or invalid API key');
+          }
+          const text = await response.text().catch(() => '');
+          // If the API returned HTML (like an error page), surface it in the message
+          if (text && text.trim().startsWith('<')) {
+            throw new Error(`YouTube search returned non-JSON response: ${text.slice(0, 200)}`);
+          }
+          throw new Error(`YouTube search failed: ${response.status}`);
+        }
+
+        // Ensure response is JSON
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const maybeText = await response.text().catch(() => '');
+          throw new Error(`YouTube search returned unexpected content-type: ${contentType} - ${maybeText.slice(0,200)}`);
         }
 
         const data = await response.json();
@@ -62,8 +78,12 @@ export const useVideoSearch = () => {
         const detailsResponse = await fetch(
           `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoIds}&key=${apiKey}`
         );
+        if (!detailsResponse.ok) {
+          // fallback to unknown durations if details call fails
+          console.warn('YouTube video details fetch failed:', detailsResponse.status);
+        }
 
-        const detailsData = await detailsResponse.json();
+        const detailsData = await (detailsResponse.ok ? detailsResponse.json() : Promise.resolve({ items: [] }));
 
         const results: YouTubeVideo[] = data.items.map((item: YouTubeSearchItem, index: number) => ({
           id: item.id.videoId,
