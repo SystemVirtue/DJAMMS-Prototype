@@ -11,7 +11,7 @@ const Marquee: React.FC<{ text: string; className?: string }> = ({ text, classNa
   return (
     <div className={`whitespace-nowrap animate-marquee w-full ${className}`}>
       <div className="text-amber-400 font-semibold text-lg">
-        {text}
+        <span data-testid="marquee-text">{text}</span>
       </div>
     </div>
   );

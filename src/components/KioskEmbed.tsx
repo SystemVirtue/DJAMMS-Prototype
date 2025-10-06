@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect } from 'react';
 import { RealtimeQueueProvider, useRealtimeQueue } from '../contexts/AppwriteContext';
 import { usePlayerManager } from '../hooks/usePlayerManager';
 import { ScrollArea } from './ui/scroll-area';
@@ -18,8 +18,7 @@ const Marquee: React.FC<{ text: string; className?: string }> = ({ text, classNa
 
 const KioskEmbedContent: React.FC = () => {
   const { queue } = useRealtimeQueue();
-  const playerManager = usePlayerManager();
-  const playerManagerRef = useRef(playerManager);
+  const { playerState, playTrack, setCurrentVideoId } = usePlayerManager();
 
   const currentTrack = queue.length > 0 ? queue[0] : null;
 
@@ -36,33 +35,33 @@ const KioskEmbedContent: React.FC = () => {
     requestFullscreen();
   }, []);
 
-  useEffect(() => {
-    if (queue.length > 0) {
-      const videoId = queue[0].id;
-      playerManagerRef.current.setCurrentVideoId(videoId);
-      if (!playerManager.playerState.isPlaying) {
-        setTimeout(() => playerManagerRef.current.playTrack(videoId), 0);
+  // Defer all updates to post-render with useLayoutEffect and setTimeout
+  useLayoutEffect(() => {
+    const updatePlayer = () => {
+      if (queue.length > 0) {
+        const videoId = queue[0].id;
+        setTimeout(() => setCurrentVideoId(videoId), 0);
+        if (!playerState.isPlaying) {
+          setTimeout(() => playTrack(videoId), 0);
+        }
+      } else {
+        setTimeout(() => setCurrentVideoId(null), 0);
       }
-    } else {
-      playerManagerRef.current.setCurrentVideoId(null);
-    }
-    console.log('KioskEmbed queue:', queue);
-  }, [queue.length]); // Length only—no updaters
+      console.log('KioskEmbed queue:', queue);
+    };
+
+    updatePlayer();
+  }, [queue.length]); // Length only
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col z-0 overflow-hidden">
-      {/* Top 1/4: Marquee now-playing */}
       <div className="flex-1 flex items-center justify-center">
-        <Marquee
-          text={currentTrack ? currentTrack.title : 'No track playing'}
-        />
+        <Marquee text={currentTrack ? currentTrack.title : 'No track playing'} />
       </div>
-
-      {/* Middle 2/4: Iframe */}
       <div className="flex-1 flex items-center justify-center">
-        {playerManager.playerState.currentVideoId ? (
+        {playerState.currentVideoId ? (
           <iframe
-            src={`https://www.youtube.com/embed/${playerManager.playerState.currentVideoId}?autoplay=1&controls=0&rel=0&modestbranding=1&showinfo=0`}
+            src={`https://www.youtube.com/embed/${playerState.currentVideoId}?autoplay=1&controls=0&rel=0&modestbranding=1&showinfo=0`}
             title="YouTube Player"
             className="h-full w-full border-none"
             allow="autoplay; encrypted-media"
@@ -74,8 +73,6 @@ const KioskEmbedContent: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Bottom 1/4: ScrollArea queue */}
       <div className="flex-1 flex flex-col">
         <h3 className="text-white text-lg font-semibold p-4">Up Next</h3>
         <ScrollArea className="flex-1 p-4">

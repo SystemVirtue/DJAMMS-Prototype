@@ -64,6 +64,59 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
   const TEST_QUEUE_STORAGE_KEY = 'djams-test-queue';
 
   useEffect(() => {
+    // Define fetchDefaultPlaylist and fetchQueue up-front so test mode can
+    // also poll the DB for updates.
+    const fetchDefaultPlaylist = async () => {
+      try {
+        const res = await databases.listDocuments(
+          import.meta.env.VITE_APPWRITE_DATABASE_ID,
+          'playlists',
+          [Query.equal('name', 'global_default_playlist')]
+        );
+        if (res.documents.length > 0) {
+          const p = res.documents[0] as any;
+          const raw = p.tracks ?? p.playlist ?? p.items ?? p.data;
+          const tracks = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          if (Array.isArray(tracks)) {
+            setTimeout(() => {
+              setQueue(prev => {
+                try {
+                  if (JSON.stringify(prev) !== JSON.stringify(tracks)) return [...tracks];
+                } catch (e) {
+                  return [...tracks];
+                }
+                return prev;
+              });
+            }, 0);
+            return true;
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching default playlist:', err);
+      }
+      return false;
+    };
+
+    // Define fetchQueue so it can be reused by polling
+    const fetchQueue = async () => {
+      try {
+        const response = await databases.listDocuments(
+          import.meta.env.VITE_APPWRITE_DATABASE_ID,
+          'queues',
+          [Query.equal('venueId', venueId)]
+        );
+        if (response.documents.length > 0) {
+          const doc = response.documents[0];
+          const parsed = typeof doc.queue === 'string' ? JSON.parse(doc.queue) : doc.queue;
+          setQueue(Array.isArray(parsed) ? parsed : []);
+          return true;
+        }
+      } catch (error) {
+        console.error('Error fetching initial queue:', error);
+      }
+      return false;
+    };
+
     if (isTestMode && typeof window !== 'undefined') {
       const syncWithStorage = () => {
         try {
@@ -102,31 +155,31 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
 
       window.addEventListener('storage', handleStorageChange);
 
+      // Poll for changes as Playwright creates isolated contexts that don't
+      // reliably forward storage events/BroadcastChannel between contexts.
+      const interval = setInterval(syncWithStorage, 300);
+      const dbPollInterval = setInterval(fetchQueue, 1000);
+
       return () => {
         window.removeEventListener('storage', handleStorageChange);
+        clearInterval(interval);
+        clearInterval(dbPollInterval);
         channel.close();
       };
     }
-
-    // Non-test fetch (unchanged)
-    const fetchQueue = async () => {
-      try {
-        const response = await databases.listDocuments(
-          import.meta.env.VITE_APPWRITE_DATABASE_ID,
-          'queues',
-          [Query.equal('venueId', venueId)]
-        );
-        if (response.documents.length > 0) {
-          const doc = response.documents[0];
-          setQueue(doc.queue ? JSON.parse(doc.queue) : []);
-        }
-      } catch (error) {
-        console.error('Error fetching initial queue:', error);
+    (async () => {
+      const found = await fetchQueue();
+      if (!found) {
+        await fetchDefaultPlaylist();
       }
-    };
 
-    // Fetch initial queue once
-    fetchQueue();
+      // Poll the DB for updates every second so separate browser contexts
+      // (Playwright test contexts) can observe changes via the DB.
+      const dbPollInterval = setInterval(fetchQueue, 1000);
+
+      // Ensure DB polling is cleaned up when effect tears down
+      (window as any).__djams_dbPollCleanup = () => clearInterval(dbPollInterval);
+    })();
   }, [venueId, databases, isTestMode]);
 
   const value: RealtimeQueueContextType = {

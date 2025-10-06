@@ -156,6 +156,7 @@ const AdminConsoleContent: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <span className="font-medium text-white truncate block">{track.title}</span>
                           <Badge
+                            data-testid="priority-badge"
                             variant="secondary"
                             className={`mt-1 ${
                               track.priority === 'high' ? 'bg-red-500' :

@@ -158,6 +158,48 @@ export const usePlaylistManager = () => {
       const sortedQueue = sortQueueByPriority(newQueue);
       (window as any).globalTestQueue = sortedQueue;
       localStorage.setItem(TEST_QUEUE_STORAGE_KEY, JSON.stringify(sortedQueue));
+      try {
+        // Also persist to Appwrite so other browser contexts (player/kiosk) which
+        // poll the DB will observe the change during tests.
+        try {
+          const response = await databases.listDocuments(
+            import.meta.env.VITE_APPWRITE_DATABASE_ID,
+            'queues',
+            [Query.equal('venueId', currentVenue)]
+          );
+          if (response.documents.length > 0) {
+            const docId = response.documents[0].$id;
+            await databases.updateDocument(
+              import.meta.env.VITE_APPWRITE_DATABASE_ID,
+              'queues',
+              docId,
+              {
+                venueId: currentVenue,
+                queue: JSON.stringify(sortedQueue),
+                updatedAt: new Date().toISOString(),
+              }
+            );
+          } else {
+            await databases.createDocument(
+              import.meta.env.VITE_APPWRITE_DATABASE_ID,
+              'queues',
+              'unique()',
+              {
+                venueId: currentVenue,
+                queue: JSON.stringify(sortedQueue),
+                createdAt: new Date().toISOString(),
+              }
+            );
+          }
+        } catch (dbErr) {
+          // ignore DB write errors in test mode
+        }
+        const channel = new BroadcastChannel('djams-test-queue-sync');
+        channel.postMessage({ type: 'queue-update' });
+        channel.close();
+      } catch (e) {
+        // BroadcastChannel might not be available in some environments
+      }
       setQueue(sortedQueue);
       return;
     }
@@ -205,6 +247,45 @@ export const usePlaylistManager = () => {
       const newQueue = currentGlobalQueue.filter((track: Track) => track.id !== trackId);
       (window as any).globalTestQueue = newQueue;
       localStorage.setItem(TEST_QUEUE_STORAGE_KEY, JSON.stringify(newQueue));
+      try {
+        const response = await databases.listDocuments(
+          import.meta.env.VITE_APPWRITE_DATABASE_ID,
+          'queues',
+          [Query.equal('venueId', currentVenue)]
+        );
+        if (response.documents.length > 0) {
+          await databases.updateDocument(
+            import.meta.env.VITE_APPWRITE_DATABASE_ID,
+            'queues',
+            response.documents[0].$id,
+            {
+              venueId: currentVenue,
+              queue: JSON.stringify(newQueue),
+              updatedAt: new Date().toISOString(),
+            }
+          );
+        } else {
+          await databases.createDocument(
+            import.meta.env.VITE_APPWRITE_DATABASE_ID,
+            'queues',
+            'unique()',
+            {
+              venueId: currentVenue,
+              queue: JSON.stringify(newQueue),
+              createdAt: new Date().toISOString(),
+            }
+          );
+        }
+      } catch (dbErr) {
+        // ignore
+      }
+      try {
+        const channel = new BroadcastChannel('djams-test-queue-sync');
+        channel.postMessage({ type: 'queue-update' });
+        channel.close();
+      } catch (e) {
+        // ignore
+      }
       setQueue(newQueue);
       return;
     }
