@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { Client, Databases, Account } from 'appwrite';
 
@@ -58,25 +58,34 @@ export const RealtimeQueueProvider: React.FC<RealtimeQueueProviderProps> = ({ ch
   const [queue, setQueue] = useState<Track[]>([]);
 
   // Check if we're in test mode
-  const isTestMode = typeof window !== 'undefined' && window.location.search.includes('test=true');
+  const isTestMode = useMemo(() => typeof window !== 'undefined' && window.location.search.includes('test=true'), []);
 
   // Storage key for cross-tab sync
   const TEST_QUEUE_STORAGE_KEY = 'djams-test-queue';
 
+  // Memoize queue to prevent unnecessary re-renders
+  const memoQueue = useMemo(() => queue, [JSON.stringify(queue)]);
+
   useEffect(() => {
     // In test mode, sync with localStorage and BroadcastChannel
     if (isTestMode && typeof window !== 'undefined') {
-      const syncWithStorage = () => {
+      const syncWithStorage = useCallback(() => {
         try {
           const stored = localStorage.getItem(TEST_QUEUE_STORAGE_KEY);
           if (stored) {
             const parsedQueue = JSON.parse(stored);
-            setQueue([...parsedQueue]);
+            setQueue(prev => {
+              // Only update if different to prevent loops
+              if (JSON.stringify(prev) !== JSON.stringify(parsedQueue)) {
+                return [...parsedQueue];
+              }
+              return prev;
+            });
           }
         } catch (error) {
           console.error('Error syncing test queue from storage:', error);
         }
-      };
+      }, []);
 
       // Initial sync
       syncWithStorage();
